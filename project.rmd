@@ -1,0 +1,35 @@
+---
+title: "Toy_dataset"
+author: "Tatiana Iazykova"
+date: "17/03/2021"
+output: html_document
+---
+
+## Toy dataset for our R project
+
+**Our hypothesis**
+
+Entropy should be higher in colloquial speech than in scientific texts and this difference should be the most noticable in three linguistic parameters:
+
+1) Most frequent colloquial phrases like "you know"
+2) Elliptical structures
+3) Contracted forms
+
+**Data**
+
+Scientific articles about COVID-19 + Tweets
+
+The first dataset "Scientific articles about COVID-19" is taken from https://pubmed.ncbi.nlm.nih.gov/. This a collection of parsed scientific articles
+
+```{r}
+library(tidyverse)
+```
+
+Here is a sample from our data set of scientific articles with respect to one linguistic parameter -- contractions. We counted how many contractions occured in texts.
+
+```{r}
+toy_data <- read_csv('https://raw.githubusercontent.com/tatiana-iazykova/project_R/main/toy_dataset_science.csv)
+
+summary(toy_data)
+```
+
