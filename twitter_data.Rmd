@@ -1,0 +1,83 @@
+---
+title: "twitter_data.Rmd"
+author: "Anna Klezovich"
+date: "14 04 2021"
+output: html_document
+---
+
+**Our hypothesis**
+
+Entropy should be higher in colloquial speech than in scientific texts and this difference should be the most noticable in three linguistic parameters:
+
+1) Most frequent colloquial phrases like "you know"
+2) Elliptical structures
+3) Contracted forms
+
+**Data**
+
+Scientific articles about COVID-19 + Tweets
+
+## This part is dedicated only to Tweets Data 
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+twit_data <- read_csv('twitter_data.csv')
+
+summary(twit_data)
+```
+
+```{r}
+head(twit_data$contracted)
+```
+
+Now we need to add column that will have count of contracted and informal tokens in each text
+
+<-- length(unlist(strsplit("['cat', 'not']", ","))) / length(unlist(strsplit("my tweet text", " ")))
+[1] 0.6666667 -->
+
+Did we find the words anywhere? Let's check
+
+```{r}
+head(twit_data$contracted, 40)
+```
+
+```{r}
+twit_data['count_contr'] <- round(ifelse(is.na(twit_data$contracted), 0, length(unlist(strsplit(twit_data$contracted, "|"))) / length(unlist(strsplit(twit_data$text, " ")))), digits = 4)
+```
+
+```{r}
+twit_data$count_contr
+```
+
+## This part is about scientific articles
+
+Basically the same, on different data
+
+```{r}
+sci_data_1 <- read_csv('dataset_science_pt1.csv')
+sci_data_2 <- read_csv('dataset_science_pt2.csv')
+```
+
+```{r}
+head(sci_data_1)
+```
+
+```{r}
+sci_data_1$count_contr <- round(sci_data_1$count_contr, digits = 4)
+sci_data_2$count_contr <- round(sci_data_2$count_contr, digits = 4)
+head(sci_data_1$count_contr, 40)
+```
+
+
+
+
+
+
+
+
+
+
+
