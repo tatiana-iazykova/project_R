@@ -17,9 +17,15 @@ Our data is a combined dataset that includes tweets about COVID-19 that were obt
 4. `elliptical_rate` - the amount of elliptical sentences normalised ny the number of words in the article
 
 Data in the repository:
-`twitter_data_ellipse.csv.gz` - twitter data
-`cleaned_dataset_science_pt1_ellipse.csv.gz` - first part of the scientific data
-`dataset_science_pt2_ellipse.csv.gz` - second part of the scientific data
-`data.csv` - combined data without `text` column
+* `twitter_data_ellipse.csv.gz` - twitter data
+* `cleaned_dataset_science_pt1_ellipse.csv.gz` - first part of the scientific data
+* `dataset_science_pt2_ellipse.csv.gz` - second part of the scientific data
+* `data.csv` - combined data without `text` column
+
+Python scripts:
+* `Data.ipynb` - clean duplicates in scientific texts
+* `prepare_twitter_data.ipynb ` - prepares twitter data
+* `R_project.ipynb` - prepares scientific data
+* `Udpipe_R.ipynb ` - obtaines sentences with elliptical structure
 
 `twitter_data.Rmd` - creates two draft datasets Scientific articles + twitter
