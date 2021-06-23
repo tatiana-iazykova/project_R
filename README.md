@@ -27,5 +27,3 @@ Python scripts:
 * `prepare_twitter_data.ipynb ` - prepares twitter data
 * `R_project.ipynb` - prepares scientific data
 * `Udpipe_R.ipynb ` - obtaines sentences with elliptical structure
-
-`twitter_data.Rmd` - creates two draft datasets Scientific articles + twitter
