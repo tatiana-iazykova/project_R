@@ -1,0 +1,283 @@
+---
+title: "twitter_data.Rmd"
+author: "Anna Klezovich & Tatiana Yazykova"
+date: "14 04 2021"
+# output: html_document
+output: bookdown::html_document2
+---
+
+## Introduction 
+
+**Our hypothesis**
+
+Entropy should be higher in colloquial speech than in scientific texts and this difference should be the most noticeable in three linguistic parameters:
+
+1) Most frequent colloquial phrases like "you know"
+2) Elliptical structures
+3) Contracted forms
+
+**Data**
+
+Our data is a combined dataset that includes tweets about COVID-19 that were obtained through Kaggle and parsed scientific articles about COVID-19 that were sampled from CORD corpus. In this work we only used the texts themselves without any additional information from the datasets. The datasets concerned the scientific articles have the following columns:
+
+1. `text` - the text of the articles
+2. `contracted` - contracted forms and most frequent colloquial phrases found in the article
+3. `count_contr` - the amount of contracted forms normalised ny the number of words in the article
+4. `elliptical_rate` - the amount of elliptical sentences normalised ny the number of words in the article
+
+The `elliptical_rate` turned to be very hard to use as there is a huge imbalance in cases of non-null elliptical rate (twitter -- 2, scientific -- 83), so we will not use it. 
+## Load and preprocess datasets
+
+```{r}
+library(tidyverse, quiet = T)
+library(entropy, quiet = T)
+library(plyr, quiet = T)
+```
+
+```{r}
+zz <- gzfile('twitter_data_ellipse.csv.gz','rt')  
+twit_data <- read.csv(zz)
+# twit_data <- read_csv('twitter_data_ellipse.csv')
+
+summary(twit_data)
+```
+As we can see, not all the tweets has contracted forms in them. We filter out the data that does not contain any contracted forms.
+
+```{r}
+twit_data <- twit_data %>% 
+  filter(!is.na(contracted))
+head(twit_data$contracted)
+```
+Now we need to add column that will have count of contracted and informal tokens in each text.
+
+However, there are some some tweets that do have the information needed.
+
+```{r}
+twit_data['count_contr'] <- round(ifelse(is.na(twit_data$contracted), 0, laply(strsplit(twit_data$contracted, split='|', fixed=TRUE), length) / laply(strsplit(twit_data$text, split=' ', fixed=TRUE), length)), digits = 4)
+```
+
+Let us check that column is filled correctly:
+```{r}
+head(twit_data$count_contr, 40)
+```
+
+To ensure the fair comparison we upload the scientific part of our dataset and perform the similar analysis
+
+```{r}
+# sci_data_1 <- read_csv('cleaned_dataset_science_pt1_ellipse.csv')
+zz <- gzfile('cleaned_dataset_science_pt1_ellipse.csv.gz','rt')  
+sci_data_1  <- read.csv(zz)
+# sci_data_2 <- read_csv('dataset_science_pt2_ellipse.csv')
+z <- gzfile('dataset_science_pt2_ellipse.csv.gz','rt')  
+sci_data_2  <- read.csv(z)
+```
+
+```{r}
+#head(sci_data_1)
+```
+
+Here we are normalising the data:
+```{r}
+sci_data_1$count_contr <- round(sci_data_1$count_contr, digits = 4)
+sci_data_2$count_contr <- round(sci_data_2$count_contr, digits = 4)
+head(sci_data_1$count_contr, 40)
+```
+
+```{r, fig.cap = "Table 1"}
+#head(sci_data_2)
+```
+
+As we have the same structure in the dataframes we can combine them into one.
+
+```{r, fig.cap = "Table 2"}
+sci_data_all <- rbind(sci_data_1, sci_data_2)
+#head(sci_data_all)
+```
+
+Now it is time to explore our data. First we add the column indicating the origin of our data (scientific or twitter) and then combine the data
+
+
+```{r, fig.cap = "Figure 1"}
+library(ggplot2, quiet = T)
+data <- read_csv('data.csv')
+
+data %>% 
+  ggplot(aes(origin, count_contr, color=origin))  +
+  geom_violin() +
+  geom_jitter(width=0.2) +
+  ggtitle("Percentage of contractions with respect to text origin")
+```
+
+We can see that the range of values is very diverse, however there is a clear trend present that the percentage of contracted forms in scientific texts is always lower than the one in tweets.
+
+To prove that there is indeed a significant linear correlation between the origin of the data and the amount of contracted forms in it we suggest building two linear models. The first one -- `lin` that is a simple linear regression and the second one -- `me` is the model that assumes that there is a random effect from the length of the text in words. For that reason we create an additional variable `len.text`.
+
+```{r}
+pairwise.t.test(data$count_contr, data$origin, p.adjust.method = 'bonferroni')
+
+library(lme4, quiet = T)
+library(lmerTest, quiet = T) 
+library(MuMIn)
+
+lin <- lm(count_contr ~ origin, data)
+me <- lmer(count_contr ~ origin + (1|len.text), data=data, REML = FALSE)
+
+summary(lin)
+summary(me)
+print(paste('R-squared for mixed effect model:',r.squaredGLMM(me)[1]))
+```
+We can see that there is some significant correlation between the origin of the data and the amount of contracted forms in it and, according to R-squared the simple linear model performs slighly worse than the one with mixed effect. To prove that point let us perform an anova.
+
+```{r}
+anova(me, lin)
+```
+
+```{r, fig.cap = "Figure 2"}
+data %>%
+  mutate(len.text = log10(len.text)) %>%  
+  ggplot(aes(len.text, count_contr, color=origin))  +
+  geom_point() +
+  ggtitle("Percentage of contractions by length of text")
+```
+From the scatter plot we can also see, that texts with less words is more likely to have high proportion of contracted forms in them.
+
+So, the number of words in the text is indeed a significant factor. However, we will concentrate on contracted forms only, because this predictor is more interesting in terms of measuring the amount of entropy.
+
+To prove that there is high correlation between the origin of the text and the amount of contracted forms in it we also compute the correlation coefficient.
+
+```{r}
+library(polycor)
+```
+
+```{r, fig.cap = "Table 3"}
+hetcor(data$origin, data$count_contr)
+```
+
+Since our data with scores for numbers of contracted words does not come from normal bivariate distrbution, we can use Spearman rank correlation coefficient just to make sure:
+ 
+```{r}
+res <-cor.test(data$len.text, data$count_contr,  method = "spearman")
+res
+```
+There is a strong negative correlation, since rho is close to -1. This means that every time x increases, y decreases. This trend can also be observed in the graph.
+
+## Entropy
+
+Then we calculated entropy. For that we had to turn count_contr columns into categorical, so kind of split it into several bins, but first we need to establish the number of bins.
+
+Let us start with the example from the manual of new package "entropy", which has a function to split a vector of continuous values into categorical and then calculate Shennon's entropy with this data.
+
+The example below shows, that entropy is the highest when there are several homogeneous categories and the lowest when there are many categories, but most of the data points are in one or a few of them. The antropy values when it comes to continuous data (our case) shows only level of homogeneity of categories. Why is that? Because the number of categories is determined by us, when we discretize.
+
+https://cran.r-project.org/web/packages/entropy/entropy.pdf 
+```{r, fig.cap = "Figure 3"}
+x1 = runif(10000)
+hist(x1, xlim=c(0,1), freq=FALSE, , main="Histogram for uniform distribution")
+y1 = discretize(x1, numBins=10, r=c(0,1))
+#y1
+# compute entropy from counts
+#entropy(y1) # empirical estimate near theoretical maximum = 2.302256
+#log(10) # theoretical value for discrete uniform distribution with 10 bins = 2.302585
+```
+
+```{r, fig.cap = "Figure 4"}
+# sample from a non-uniform distribution
+x2 = rbeta(10000, 750, 250)
+hist(x2, xlim=c(0,1), freq=FALSE, main="Histogram for non-uniform distribution")
+# discretize into 10 categories and estimate entropy
+y2 = discretize(x2, numBins=10, r=c(0,1))
+#y2
+#entropy(y2) # almost zero 0.00292442
+```
+Now we can get back to our real data. First, we split continuous data into categories. Number of bins should not be to big or to low.
+
+```{r, fig.cap = "Figure 5"}
+ggplot(data, aes(x = count_contr)) + 
+  facet_wrap('origin') + 
+  geom_histogram(aes(y = ..density..)) + 
+  geom_density() +
+  ggtitle("Density plots for count_contr distribution by text origin")
+```
+
+
+It seems that our data do not follow the normal distribution but let us run the test to make sure.
+```{r}
+shapiro.test(data$count_contr)
+```
+```{r, fig.cap = "Figure 6"}
+library(ggpubr)
+ggqqplot(data$count_contr)+
+  ggtitle("Q-Q plot")
+```
+
+
+
+P-value is very small, so we can reject the hypothesis that the data follow the normal distribution. The data also do not lie close to the line in the graph, what also supports the hypothesis that the data do not follow the normal distribution.
+
+
+```{r, fig.cap = "Figure 7"}
+hist(sci_data_all$count_contr, xlim=c(0,0.0121), freq=FALSE, main="Histogram of distribution of count_contr by bins in scientific")
+```
+
+Looks like the number of unique values in sci_data is pretty low, so that we we can make the number of bins relatively the same (or just a bit less) as number of unique values.
+
+```{r}
+# количество уникальных значений
+length(unique(sci_data_all$count_contr))  # 46
+length(sci_data_all$count_contr)  # 2800
+```
+
+Only 46 unique values, if we make the exact same number of bins, we might just accidentally get 1 value per bin, which will lead to the highest entropy, even if it is not exactly the case in the data. If on the contrary we make the number of bins to small comparing to number of unique values, we might skew our data in the opposite direction. That is why, the number of bins we are picking is relatively the same with number of unique values, but a bit lower.
+
+```{r}
+sci = discretize(sci_data_all$count_contr, numBins=20, r=c(0,0.0121))
+sci
+```
+
+```{r}
+entropy(sci)
+```
+
+Now we can do the same procedure for twitter data.
+
+```{r, fig.cap = "Figure 8"}
+ggplot(twit_data, aes(x = count_contr)) + 
+  geom_histogram(aes(y = ..density..)) + 
+  geom_density() +
+  ggtitle("Density plot for count_contr in twitter")
+```
+
+We start with investigating, how many unique values are there in count_contr column and to what range do they belong.
+
+```{r, fig.cap = "Figure 9"}
+hist(twit_data$count_contr, xlim=c(0,0.25), freq=FALSE, main="Histogram of distribution of count_contr by bins in twitter")
+```
+
+```{r}
+length(unique(twit_data$count_contr))  # 30
+```
+
+```{r}
+length(twit_data$count_contr)  # 931
+```
+
+Again we pick 20 columns.
+
+```{r}
+twi = discretize(twit_data$count_contr, numBins=20, r=c(0,0.45))
+twi
+```
+
+```{r}
+entropy(twi)
+```
+
+As we can see, there is more entropy in twitter data, as expected, -- 1.136328 > 0.6983082. Contracted words and other slang expressions concerned COVID-19 are found in twitter data more homogeneously than in scientific one. Therefore, we can say that style of the text (twitter|informal Vs. scientific|formal) is intertwined with entropy in a way, that less formal texts have higher entropy. However, it is worth mentioning that we usually do not expect scientific texts to have entropy at all, as dissolving entropy is a defining characteristic of the genre. Thus, the main takeaway of our research turned out to be the measurement of entropy in scientific texts and the fact that they all are dedicated to the same topic -- COVID-19, in our minds can in fact impact the amount of entropy in tweets about.
+
+
+
+
+
+
+
+
